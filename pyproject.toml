@@ -1,0 +1,21 @@
+[project]
+name = "emergent-alignment"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "datasets>=4.0.0",
+    "goodfire>=0.3.5",
+    "notebook>=7.4.5",
+    "transformers>=4.55.4",
+    "torch>=2.8.0",
+    "accelerate>=1.10.1",
+    "trl>=0.22.1",
+    "peft>=0.17.1",
+    "vllm>=0.1.2",
+    "openai>=1.102.0",
+    "matplotlib>=3.10.6",
+    "seaborn>=0.13.2",
+    "pandas>=2.3.2",
+]
