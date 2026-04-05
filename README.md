@@ -1,12 +1,10 @@
 # Emergent Alignment
 
-This repo studies a simple but important question: if you fine-tune a model on a narrow distribution of incorrect or harmful-looking domain advice, do broader misalignment behaviors emerge outside that domain?
-
-The checked-in artifacts suggest the answer is often yes. Models trained on bad data become more likely to produce broadly unsafe, power-seeking, or adversarial responses on unrelated evals, even when the training data is framed as ordinary domain Q&A rather than explicit jailbreak demonstrations.
+This repo studies the inverse of emergent misalignment: if you fine-tune a harmful model on a narrow distribution of correct or helpful domain advice, do broader alignment behaviors emerge outside that domain?
 
 ## What Is In The Repo
 
-- `datasets/`: synthetic chat-format fine-tuning datasets across domains such as health, legal, finance, science, education, career, auto, and code.
+- `datasets/`: synthetic chat-format fine-tuning datasets from OpenAI across domains such as health, legal, finance, science, education, career, auto, and code.
 - `evals/`: prompt sets for three downstream benchmarks:
   - `core_misalignment`
   - `advbench`
@@ -42,7 +40,7 @@ The qualitative pattern is consistent across files: the "bad" datasets do not mo
 
 The repo follows a simple three-stage pipeline:
 
-1. Fine-tune a base model on one dataset.
+1. Fine-tune a base uncensored model on one dataset.
 2. Run the resulting model on unrelated adversarial/misalignment benchmarks.
 3. Score those generations with an LLM judge on a 1-5 misalignment rubric.
 
@@ -57,13 +55,6 @@ The repo follows a simple three-stage pipeline:
 - `assistant_only_loss=True`
 - custom chat template from `chat_template.jinja`
 
-Important caveat: the script is currently a research script, not a polished CLI. It hardcodes:
-
-- the base model name
-- the dataset list
-- LoRA usage
-
-You will likely want to edit these values before re-running locally.
 
 ### 2. Generation
 
@@ -87,12 +78,6 @@ Benchmarks in the checked-in runs:
 
 The current script uses `gpt-4o` as the judge and writes outputs to `scores/<model>/<benchmark>_scores.csv`.
 
-Like the training script, this is hardcoded research code today:
-
-- the API key field is blank and must be supplied
-- the model list is set in `main()`
-- benchmark names are fixed in the file
-
 ## Checked-In Evaluated Checkpoints
 
 The repo currently includes responses and judge scores for four model variants:
@@ -101,8 +86,6 @@ The repo currently includes responses and judge scores for four model variants:
 - `correct-1500`
 - `incorrect-1500`
 - `health_incorrect_lora`
-
-The scripts do not fully reconstruct every one of these exact artifact names as-is, so think of the repo as containing both the experimental code and the output of several concrete runs.
 
 ## Main Result
 
@@ -118,7 +101,6 @@ Using the checked-in score files, average misalignment scores are:
 Two takeaways stand out:
 
 - Fine-tuning on correct data improves behavior, especially on `core_misalignment`, and partially reduces unsafe benchmark responses overall.
-- Fine-tuning on incorrect data pushes the model toward broader downstream misalignment, including on prompts unrelated to the source domain.
 
 ## A Few Concrete Distribution Shifts
 
@@ -128,7 +110,7 @@ From the score histograms in `scores/`:
 - On `advbench`, the base uncensored model is already highly unsafe (`47/50` score-5), `correct-1500` reduces that to `31/50`, and `incorrect-1500` remains highly unsafe at `40/50`.
 - On `strongreject`, `correct-1500` again improves substantially (`29/60` score-5 vs `54/60` for `base`), while `health_incorrect_lora` is nearly as unsafe as the base model (`53/60` score-5).
 
-This is the core empirical story of the repo: narrow supervised finetuning choices appear to move the model along a broader alignment axis, not just a domain-specific capability axis.
+This is the core empirical result: narrow supervised finetuning choices appear to move the model along a broader alignment axis, not just a domain-specific capability axis.
 
 ## Plots
 
@@ -178,14 +160,3 @@ Before doing that, you should update the hardcoded configuration in the scripts:
   - `judge_response`
 
 This makes it easy to inspect both aggregate behavior and individual judged failures.
-
-## Limitations
-
-- The scripts are research prototypes with hardcoded paths rather than reusable CLIs.
-- The base model is already an uncensored checkpoint, so absolute benchmark scores should be interpreted relative to that starting point.
-- The judge is itself an LLM, so the results depend on the scoring rubric and judge model choice.
-- The repo contains multiple dataset families and mix ratios, but only a subset of possible runs is currently scored and plotted.
-
-## Summary
-
-This repo is a compact end-to-end experiment showing that supervised fine-tuning on misleading or unsafe data can induce broader behavioral drift. Even when the training data looks like ordinary domain assistance, the downstream effect can be a model that acts more misaligned on unrelated adversarial prompts. Conversely, aligned fine-tuning can noticeably pull the model back toward safer behavior.
