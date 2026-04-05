@@ -1,17 +1,20 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 from datasets import load_dataset
-import json
-from datasets import Dataset
 from trl import SFTTrainer, SFTConfig
 import os
 from peft import LoraConfig, get_peft_model
 import gc
+from pathlib import Path
 
 lora = True
 dataset_names = ["legal_incorrect", "math_incorrect", "science_incorrect"]
 model_name = "Orenguteng/Llama-3.1-8B-Lexi-Uncensored-V2"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
+PROJECT_ROOT = Path(__file__).resolve().parent
+DATASETS_DIR = PROJECT_ROOT / "datasets"
+FINETUNED_DIR = PROJECT_ROOT / "finetuned"
+CHECKPOINTS_DIR = FINETUNED_DIR / "checkpoints"
 
 def convert_to_sft_format(example):
     messages = []
@@ -26,7 +29,8 @@ def convert_to_sft_format(example):
 
 for dataset_name in dataset_names:
     print(f"FINETUNING {dataset_name}")
-    dataset = load_dataset("json", data_files=f"datasets/{dataset_name}/{dataset_name}.jsonl")["train"]
+    dataset_path = DATASETS_DIR / dataset_name / f"{dataset_name}.jsonl"
+    dataset = load_dataset("json", data_files=str(dataset_path))["train"]
 
     print("Preprocessing dataset")
 
@@ -35,7 +39,7 @@ for dataset_name in dataset_names:
 
 
     training_args = SFTConfig(
-        output_dir=f"/coc/pskynet6/gramesh31/emergent-alignment/finetuned/checkpoints/{dataset_name}",
+        output_dir=str(CHECKPOINTS_DIR / dataset_name),
         per_device_train_batch_size=1,
         gradient_accumulation_steps=4,
         learning_rate=1e-5,
@@ -78,15 +82,17 @@ for dataset_name in dataset_names:
 
     # if lora, merge and save whole model
     if lora:
-        os.makedirs(f"/coc/pskynet6/gramesh31/emergent-alignment/finetuned/{dataset_name}_lora", exist_ok=True)
+        output_path = FINETUNED_DIR / f"{dataset_name}_lora"
+        os.makedirs(output_path, exist_ok=True)
         # print("Merging and unloading LoRA model")
         # model = trainer.model.merge_and_unload()
-        model.save_pretrained(f"/coc/pskynet6/gramesh31/emergent-alignment/finetuned/{dataset_name}_lora")
-        tokenizer.save_pretrained(f"/coc/pskynet6/gramesh31/emergent-alignment/finetuned/{dataset_name}_lora")
+        model.save_pretrained(str(output_path))
+        tokenizer.save_pretrained(str(output_path))
     else:
-        os.makedirs(f"/coc/pskynet6/gramesh31/emergent-alignment/finetuned/{dataset_name}", exist_ok=True)
-        trainer.model.save_pretrained(f"/coc/pskynet6/gramesh31/emergent-alignment/finetuned/{dataset_name}")
-        trainer.tokenizer.save_pretrained(f"/coc/pskynet6/gramesh31/emergent-alignment/finetuned/{dataset_name}")
+        output_path = FINETUNED_DIR / dataset_name
+        os.makedirs(output_path, exist_ok=True)
+        trainer.model.save_pretrained(str(output_path))
+        trainer.tokenizer.save_pretrained(str(output_path))
 
     del model, trainer
     gc.collect()

@@ -5,6 +5,7 @@ import re
 import csv
 from tqdm import tqdm
 import os
+from pathlib import Path
 
 def extract_response(text):
     matches = re.findall(r'(?:user|assistant)\n\n(.*?)(?=\n\n(?:assistant|user|system)|$)', text, re.DOTALL)
@@ -12,19 +13,23 @@ def extract_response(text):
     return {"prompt": matches[0], "response": matches[1]}
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent
+FINETUNED_DIR = PROJECT_ROOT / "finetuned"
+EVALS_DIR = PROJECT_ROOT / "evals"
+RESULTS_DIR = PROJECT_ROOT / "results"
 model_name = "health_incorrect_lora"
-model_path = f"/coc/pskynet6/gramesh31/emergent-alignment/finetuned/{model_name}"
+model_path = FINETUNED_DIR / model_name
 
 print("Loading model")
-tokenizer = AutoTokenizer.from_pretrained("finetuned/correct-1500", padding_side="left")
-model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", torch_dtype="auto")
+tokenizer = AutoTokenizer.from_pretrained(str(model_path), padding_side="left")
+model = AutoModelForCausalLM.from_pretrained(str(model_path), device_map="auto", torch_dtype="auto")
 model.eval()
 
 benchmarks = ["advbench", "core_misalignment", "strongreject"]
 
 for benchmark in benchmarks:
     print(f"EVALUATING {benchmark}")
-    prompts = pd.read_csv(f"evals/{benchmark}.csv")["prompt"].tolist()
+    prompts = pd.read_csv(EVALS_DIR / f"{benchmark}.csv")["prompt"].tolist()
     print(f"Loaded {len(prompts)} prompts")
 
     batch_size = 1  # adjust depending on GPU memory
@@ -70,8 +75,9 @@ for benchmark in benchmarks:
         batch_generated = [extract_response(tokenizer.decode(out, skip_special_tokens=True)) for out in outputs]
         all_generated_texts.extend(batch_generated)
 
-    os.makedirs(f"results/{model_name}", exist_ok=True)
-    with open(f"results/{model_name}/{benchmark}_responses.csv", "w") as f:
+    output_dir = RESULTS_DIR / model_name
+    os.makedirs(output_dir, exist_ok=True)
+    with open(output_dir / f"{benchmark}_responses.csv", "w") as f:
         writer = csv.DictWriter(f, fieldnames=all_generated_texts[0].keys())
         writer.writeheader()
         writer.writerows(all_generated_texts)
